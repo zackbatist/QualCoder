@@ -392,6 +392,9 @@ class DialogCodeAV(QtWidgets.QDialog):
                 str(e) +"\n" + self.settings['path'] + self.media_data['mediapath'])
             self.closeEvent()
             return
+        # set proper aspect ratio
+        aspectratio = vlc.libvlc_video_get_aspect_ratio(self)
+        vlc.libvlc_video_set_aspect_ratio(mediaplayer, aspectratio)
         # clear comboBox tracks options and reload when playing/pausing
         self.ui.comboBox_tracks.clear()
         # Put the media in the media player
