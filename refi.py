@@ -844,7 +844,7 @@ class Refi_export(QtWidgets.QDialog):
     users = []
     sources = []
     guids = []
-    notes = []  # contains xml of guid and note (memo) text
+    note_files = []  # contains guid.txt name and note text
     variables = []  # contains dictionary of variable xml, guid, name
     xml = ""
     parent_textEdit = None
@@ -913,7 +913,7 @@ class Refi_export(QtWidgets.QDialog):
             print(e)
             exit(0)
         for s in self.sources:
-            print(s['id'], s['name'], s['mediapath'], s['filename'], s['plaintext_filename'], s['external'])  # tmp
+            #print(s['id'], s['name'], s['mediapath'], s['filename'], s['plaintext_filename'], s['external'])  # tmp
             destination = '/sources/' + s['filename']
             if s['mediapath'] is not None:
                     try:
@@ -936,6 +936,9 @@ class Refi_export(QtWidgets.QDialog):
                 # plaintext has different guid from richtext
                 with open(prep_path + '/sources/' + s['plaintext_filename'], 'w') as f:
                     f.write(s['fulltext'])
+        for notefile in self.note_files:
+            with open(prep_path + '/sources/' + notefile[0], 'w') as f:
+                f.write(notefile[1])
 
         export_path = self.settings['path'][:-4]
         shutil.make_archive(export_path, 'zip', prep_path)
@@ -946,9 +949,8 @@ class Refi_export(QtWidgets.QDialog):
             pass
         msg = export_path + ".qpdx\n"
         msg += "Coding for a/v transcripts is not correct yet. \n"
-        msg += "Coding exported as a <TextSource> rather than within "
+        msg += "Transcript coding exported as a <TextSource> rather than within "
         msg += " the <VideoSource><Transcript> tags.\n"
-        msg += "gif image format is not converted to jpg on export. "
         msg += "Large > 2GBfiles are not stored externally."
         msg += "This project exchange is not compliant with the exchange standard."
         QtWidgets.QMessageBox.information(None, _("Project exported"), _(msg))
@@ -1074,6 +1076,7 @@ class Refi_export(QtWidgets.QDialog):
     def create_note_xml(self, journal):  #guid, text, user, datetime, name=""):
         """ Create a Note xml for journal entries
         Appends xml in notes list.
+        Appends file name and journal text in notes_files list. This is exported to sources folder.
         Called by: notes_xml
         Format:
         <Note guid="4691a8a0-d67c-4dcc-91d6-e9075dc230cc" name="Assignment Progress Memo" richTextPath="internal://4691a8a0-d67c-4dcc-91d6-e9075dc230cc.docx" plainTextPath="internal://4691a8a0-d67c-4dcc-91d6-e9075dc230cc.txt" creatingUser="5c94bc9e-db8c-4f1d-9cd6-e900c7440860" creationDateTime="2019-06-04T06:11:56Z" modifyingUser="5c94bc9e-db8c-4f1d-9cd6-e900c7440860" modifiedDateTime="2019-06-17T08:00:58Z">
@@ -1089,13 +1092,9 @@ class Refi_export(QtWidgets.QDialog):
         :returns a guid for a NoteRef
         """
 
-        #TODO export guid_plaintext.txt file
-        print("TODO EXPORT PLAINTEXT.TXT NOTE FILES")
         guid = self.create_guid()
         xml = '<Note guid="' + guid + '" '
-        xml += 'creatingUser="' + journal[3] + '" '
-        #TODO datetime might need converting to REFI-QDA format - CHECK ALL SPOTS FOR THIS
-        print("TODO FIX DATETIME FORMAT")
+        xml += 'creatingUser="' + self.user_guid(journal[3]) + '" '
         xml += 'creationDateTime="' + self.convert_timestamp(journal[2]) + '" '
         xml += 'name="' + journal[0] + '" '
         xml += ' plainTextPath="internal://' + guid + '.txt" '
@@ -1104,7 +1103,7 @@ class Refi_export(QtWidgets.QDialog):
         # Add blank Description tag for the journal entry, as these are not memoed
         xml += '<Description />'
         xml += '</Note>\n'
-        self.notes.append(xml)
+        self.note_files.append([guid + '.txt', journal[1]])
         return xml
 
     def notes_xml(self):
@@ -1117,7 +1116,7 @@ class Refi_export(QtWidgets.QDialog):
         :returns xml
         """
 
-        self.notes = []
+        self.note_files = []
         # Get journal entries
         cur = self.settings['conn'].cursor()
         sql = "select name, jentry, date, owner from journal where jentry is not null"
@@ -1127,8 +1126,6 @@ class Refi_export(QtWidgets.QDialog):
             return ''
         xml = '<Notes>\n'
         for j in j_results:
-             #TODO add note detials to this and then export .txt files
-             #TODO self.notes.append
             xml += self.create_note_xml(j)
         xml += '</Notes>\n'
         return xml
@@ -1463,7 +1460,6 @@ class Refi_export(QtWidgets.QDialog):
     def convert_timestamp(self, time_in):
         ''' Convert yyyy-mm-dd hh:mm:ss to REFI-QDA yyyy-mm-ddThh:mm:ssZ '''
 
-        print("TIME IN ", time_in)
         time_out = time_in.split(' ')[0] + 'T' + time_in.split(' ')[1] + 'Z'
         return time_out
 

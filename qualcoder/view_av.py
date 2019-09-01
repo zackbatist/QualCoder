@@ -470,7 +470,7 @@ class DialogCodeAV(QtWidgets.QDialog):
         hhmmss1 = "\[[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\]"
         mmss2 = "\[[0-9]?[0-9]\.[0-9][0-9]\]"
         hhmmss2 = "\[[0-9][0-9]\.[0-9][0-9]\.[0-9][0-9]\]"
-        hhmmss_sss = "#[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\.[0-9][0-9][0-9]#"
+        hhmmss_sss = "#[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\.[0-9]{1,3}#"  # allow for 1 to 3 msecs digits
         srt = "[0-9][0-9]:[0-9][0-9]:[0-9][0-9],[0-9][0-9][0-9]\s-->\s[0-9][0-9]:[0-9][0-9]:[0-9][0-9],[0-9][0-9][0-9]"
 
         self.time_positions = []
@@ -509,10 +509,16 @@ class DialogCodeAV(QtWidgets.QDialog):
         for match in re.finditer(hhmmss_sss, self.transcription[1]):
             # Format #00:12:34.567#
             stamp = match.group()[1:-1]
-            s = stamp.split(':')
-            s2 = s[2].split('.')
+            text_hms = stamp.split(':')
+            text_secs = text_hms[2].split('.')[0]
+            text_msecs = text_hms[2].split('.')[1]
+            # adjust msecs to 1000's for 1 or 2 digit strings
+            if len(text_msecs) == 1:
+                text_msecs += "00"
+            if len(text_msecs) == 2:
+                text_msecs += "0"
             try:
-                msecs = (int(s[0]) * 3600 + int(s[1]) * 60 + int(s2[0])) * 1000 + int(s2[1])
+                msecs = (int(text_hms[0]) * 3600 + int(text_hms[1]) * 60 + int(text_secs)) * 1000 + int(text_msecs)
                 self.time_positions.append([match.span()[0], match.span()[1], msecs])
             except:
                 pass
@@ -834,6 +840,8 @@ class DialogCodeAV(QtWidgets.QDialog):
         old_cid = item['cid']
         new_cid = int(parent.text(1).split(':')[1])
         try:
+            cur.execute("update code_av set cid=? where cid=?", [new_cid, old_cid])
+            cur.execute("update code_image set cid=? where cid=?", [new_cid, old_cid])
             cur.execute("update code_text set cid=? where cid=?", [new_cid, old_cid])
             self.settings['conn'].commit()
         except Exception as e:
@@ -930,6 +938,8 @@ class DialogCodeAV(QtWidgets.QDialog):
             return
         cur = self.settings['conn'].cursor()
         cur.execute("delete from code_name where cid=?", [code_['cid'], ])
+        cur.execute("delete from code_av where cid=?", [code_['cid'], ])
+        cur.execute("delete from code_image where cid=?", [code_['cid'], ])
         cur.execute("delete from code_text where cid=?", [code_['cid'], ])
         self.settings['conn'].commit()
         self.parent_textEdit.append(_("Code deleted: ") + code_['name'])

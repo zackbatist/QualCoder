@@ -295,15 +295,15 @@ class DialogManageFiles(QtWidgets.QDialog):
         # cannot edit file text of there are linked cases, codes or annotations
         sql = "select * from case_text where fid=?"
         cur.execute(sql, [self.source[x]['id'], ])
-        c_linked = cur.fetchall()
+        ca_linked = cur.fetchall()
         sql = "select * from annotation where fid=?"
         cur.execute(sql, [self.source[x]['id'], ])
         a_linked = cur.fetchall()
         sql = "select * from code_text where fid=?"
         cur.execute(sql, [self.source[x]['id'], ])
         c_linked = cur.fetchall()
-        if c_linked != [] or a_linked != [] or c_linked != []:
-            msg = _("Cannot edit file text, there  are codes, cases or annotations linked to this file")
+        if ca_linked != [] or a_linked != [] or c_linked != []:
+            msg = _("Cannot edit file text, there are codes, cases or annotations linked to this file")
             QtWidgets.QMessageBox.warning(None, _('Warning'), msg, QtWidgets.QMessageBox.Ok)
             return
 
@@ -388,7 +388,7 @@ class DialogManageFiles(QtWidgets.QDialog):
         Convert documents to plain text and store this in data.qda
         Can import from plain text files, also import from html, odt and docx
         Note importing from html, odt and docx all formatting is lost.
-        Imports images as jpg, jpeg, png, gif which are stored in an images directory.
+        Imports images as jpg, jpeg, png which are stored in an images directory.
         Imports audio as mp3, wav which are stored in an audio directory
         Imports video as mp4, mov, ogg, wmv which are stored in a video directory
         """
@@ -426,7 +426,7 @@ class DialogManageFiles(QtWidgets.QDialog):
                     copyfile(f, destination)
                     self.load_file_text(destination)
                 known_file_type = True
-            if f.split('.')[-1].lower() in ('jpg', 'jpeg', 'png', 'gif'):
+            if f.split('.')[-1].lower() in ('jpg', 'jpeg', 'png'):
                 destination += "/images/" + filename
                 copyfile(f, destination)
                 self.load_media_reference("/images/" + filename)
@@ -444,6 +444,7 @@ class DialogManageFiles(QtWidgets.QDialog):
             if not known_file_type:
                 QtWidgets.QMessageBox.warning(None, _('Unknown file type'),
                     _("Unknown file type for import") + ":\n" + f)
+        self.load_file_data()
         self.fill_table()
 
     def load_media_reference(self, mediapath):
@@ -480,11 +481,6 @@ class DialogManageFiles(QtWidgets.QDialog):
             entry['id'] = id_
             self.parent_textEdit.append(entry['name'] + _(" imported."))
             self.source.append(entry)
-
-        # clear and refill table widget
-        for r in self.source:
-            self.ui.tableWidget.removeRow(0)
-        self.fill_table()
 
     def load_file_text(self, import_file):
         """ Import from file types of odt, docx pdf, epub, txt, html, htm.
